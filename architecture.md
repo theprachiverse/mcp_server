@@ -29,8 +29,8 @@ outlines how remote hosting could be added later without changing the core modul
 | Runtime | Node.js 22 LTS or newer, ESM modules (this machine has v26.7.0) | Preferred default in §8 |
 | Language | TypeScript, `strict` mode | Typed schemas and error codes |
 | MCP | `@modelcontextprotocol/sdk` (official TypeScript SDK), `McpServer` + `StdioServerTransport` | Official SDK required by FR-1 |
-| Google APIs | `googleapis` (Gmail v1, Docs v1) and `google-auth-library` (`OAuth2Client`) | Official Google client libraries |
-| Validation | `zod` | Used by the MCP SDK to produce JSON Schema for tool inputs and outputs |
+| Google APIs | `@googleapis/gmail` + `@googleapis/docs` (the per-API packages of Google's official `googleapis` client) and `google-auth-library` (`OAuth2Client`) | Same official client, much smaller install and faster start-up |
+| Validation | `zod` 4 | Used by the MCP SDK to produce JSON Schema for tool inputs and outputs. Schemas check types, required fields and enums; detailed rules run in the handlers so mistakes return the FR-5 error envelope |
 | Tests | `vitest` | Fast TypeScript-native test runner with mocking |
 | Lint / format | `eslint` + `prettier` | Standard tooling |
 | MIME building | Small in-house builder (`src/google/mime.ts`) | The message format is simple (one text or HTML part, no attachments). Writing it ourselves avoids a dependency and lets us unit-test header encoding and injection checks directly |
@@ -94,7 +94,7 @@ through `package-lock.json`. No AI-vendor SDK is a dependency (FR-1, acceptance 
             └──────────────────────────────────────────────┘
 ```
 
-Rules, enforced in code review and checked by an ESLint `no-restricted-imports` rule:
+Rules, enforced by ESLint `no-restricted-imports` and `no-console` rules:
 
 1. Only `server.ts` and `index.ts` import `@modelcontextprotocol/sdk`. Services and tools know
    nothing about MCP, so they can be reused behind a different transport (FR-1, §18).
@@ -102,8 +102,10 @@ Rules, enforced in code review and checked by an ESLint `no-restricted-imports` 
 3. Tools never call `fetch` or build URLs. There is no generic "call any API" path (§10).
 4. Pure logic (`mime.ts`, `docs-index.ts`, `validation.ts`, error mapping) has no I/O, so it
    can be unit-tested without mocks.
-5. Services receive their Google clients through a constructor argument. Tests pass fakes;
-   production passes real clients built from the OAuth client.
+5. Services receive their Google clients through a constructor argument as small **ports**
+   (`DocsPort`, `GmailPort` in `google/clients.ts`: `get`/`batchUpdate`/`send`). Tests pass fakes;
+   production passes adapters over the real clients. `AuthProvider.getClient("gmail" | "docs")`
+   returns the authorised OAuth client and checks that the capability's scope was granted.
 
 ---
 
@@ -580,7 +582,7 @@ one in effect.
 - **Redaction safety net:** the logger drops keys whose name contains `token`, `secret`,
   `authorization` or `password`, drops keys named exactly `raw`, `body`, `text`, `heading`,
   `subject`, `to`, `cc`, `bcc` or `reply_to`, and masks strings
-  that look like Google tokens (`ya29.…`, `1//…`). A unit test feeds it a realistic error
+  that look like Google tokens (`ya29.…`, `1//…`). Messages of logged `Error` objects also have email addresses and long ID-like strings masked, because library errors can embed recipients or document IDs. A unit test feeds it a realistic error
   object and asserts nothing sensitive comes out.
 - `request_id` is a random UUID per call. It is returned in the text content so a user can
   quote it when reporting a problem.

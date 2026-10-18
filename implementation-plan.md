@@ -91,7 +91,7 @@ P8 and P9 are reported as **BLOCKED** and the complete OAuth setup path still sh
 | D5 | Ship `heading` and `insert_timestamp` in V1 | arch §15 #5 | Yes |
 | D6 | Multi-tab docs: append to the first tab | arch §15 #6 | Yes |
 | D7 | `GOOGLE_OAUTH_REDIRECT_PORT` instead of `GOOGLE_OAUTH_REDIRECT_URI` | arch §15 #7 | Yes |
-| D8 | Use the per-API packages `@googleapis/gmail` + `@googleapis/docs` instead of the full `googleapis` package | New | Yes. Same official client and API, much smaller install and faster start-up. If chosen, update arch §2 |
+| D8 | Use the per-API packages `@googleapis/gmail` + `@googleapis/docs` instead of the full `googleapis` package | New | **Adopted in the build.** Same official client and API, much smaller install and faster start-up. If chosen, update arch §2 |
 | D9 | Integration email check is "message ID returned + manual look at Sent folder" because `gmail.send` cannot read mail | New, see P8 | Yes. Adding a read scope just for tests would break least privilege |
 
 - [ ] In parallel, ask the owner to start the Google Cloud setup (see P10 "Google Cloud

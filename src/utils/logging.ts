@@ -35,6 +35,13 @@ export function maskString(s: string): string {
   return out;
 }
 
+/** Error messages from libraries may embed recipients or document IDs, so mask those too. */
+export function maskErrorMessage(s: string): string {
+  return maskString(s)
+    .replace(/[^\s@<>"']+@[^\s@<>"']+\.[A-Za-z]{2,}/g, "[EMAIL]")
+    .replace(/[A-Za-z0-9_-]{28,}/g, "[ID]");
+}
+
 function isSensitiveKey(key: string): boolean {
   const k = key.toLowerCase();
   return SENSITIVE_EXACT.has(k) || SENSITIVE_SUBSTRINGS.some((s) => k.includes(s));
@@ -47,7 +54,10 @@ export function redact(value: unknown, seen = new WeakSet<object>(), depth = 0):
   if (seen.has(value) || depth > 6) return "[Circular]";
   seen.add(value);
   if (value instanceof Error) {
-    const out: Record<string, unknown> = { name: value.name, message: maskString(value.message) };
+    const out: Record<string, unknown> = {
+      name: value.name,
+      message: maskErrorMessage(value.message),
+    };
     const code = (value as { code?: unknown }).code;
     if (typeof code === "string" || typeof code === "number") out.code = code;
     const status = (value as { status?: unknown }).status;
