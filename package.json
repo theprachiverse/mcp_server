@@ -1,0 +1,39 @@
+{
+  "name": "google-workspace-mcp",
+  "version": "1.0.0",
+  "description": "Provider-neutral MCP server exposing Gmail send and Google Docs append tools",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "start": "node dist/index.js",
+    "auth": "node dist/cli/auth.js",
+    "dev:auth": "tsx src/cli/auth.ts"
+  },
+  "dependencies": {
+    "@googleapis/docs": "^14.1.1",
+    "@googleapis/gmail": "^22.0.2",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "google-auth-library": "^11.3.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5"
+  }
+}
