@@ -15,9 +15,12 @@ afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 // tsx is referenced by absolute URL because the tests run the server from another folder.
 const tsxUrl = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 const nodeArgs = ["--import", tsxUrl, path.join(root, "src/index.ts")];
-const baseEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([k]) => !k.startsWith("GOOGLE_") && k !== "LOG_LEVEL"),
-) as Record<string, string>;
+const baseEnv = {
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => !k.startsWith("GOOGLE_") && k !== "LOG_LEVEL"),
+  ),
+  DOTENV_CONFIG_PATH: path.join(tmp, ".env"),
+} as Record<string, string>;
 
 describe("stdio server process", () => {
   it("starts from any working directory without a token, lists tools and answers AUTH_REQUIRED", async () => {

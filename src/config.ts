@@ -45,10 +45,12 @@ export function findProjectRoot(startUrl: string = import.meta.url): string {
   throw new ConfigError("Could not locate the project root (package.json).");
 }
 
-/** Loads <root>/.env if present. Variables already in the environment win. */
+/** Loads <root>/.env (or DOTENV_CONFIG_PATH) if present. Variables already in the environment win. */
 export function loadDotEnv(root: string): void {
-  const file = path.join(root, ".env");
-  if (!fs.existsSync(file)) return;
+  const envPath = process.env.DOTENV_CONFIG_PATH;
+  const file =
+    envPath !== undefined ? (envPath ? path.resolve(root, envPath) : "") : path.join(root, ".env");
+  if (!file || !fs.existsSync(file)) return;
   try {
     process.loadEnvFile(file);
   } catch {

@@ -1,6 +1,8 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { ConfigError, loadConfig } from "../../src/config.js";
+import { ConfigError, loadConfig, loadDotEnv } from "../../src/config.js";
 import { AppError, toPublicError } from "../../src/utils/errors.js";
 import { createLogger, hashId, redact } from "../../src/utils/logging.js";
 import { parseRetryAfter, withRetry } from "../../src/utils/retry.js";
@@ -190,5 +192,49 @@ describe("withRetry", () => {
       parseRetryAfter("Wed, 21 Oct 2015 07:28:05 GMT", Date.parse("Wed, 21 Oct 2015 07:28:00 GMT")),
     ).toBe(5000);
     expect(parseRetryAfter(undefined)).toBeUndefined();
+  });
+});
+
+describe("loadDotEnv", () => {
+  it("does not throw if the file is missing", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gwmcp-dotenv-"));
+    try {
+      expect(() => loadDotEnv(tmp)).not.toThrow();
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("loads from DOTENV_CONFIG_PATH when provided", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gwmcp-dotenv-"));
+    const customEnv = path.join(tmp, "custom.env");
+    fs.writeFileSync(customEnv, "TEST_DOTENV_CUSTOM_VAR=loaded_from_custom\n");
+    const prev = process.env.DOTENV_CONFIG_PATH;
+    try {
+      process.env.DOTENV_CONFIG_PATH = customEnv;
+      loadDotEnv("/nonexistent");
+      expect(process.env.TEST_DOTENV_CUSTOM_VAR).toBe("loaded_from_custom");
+    } finally {
+      if (prev !== undefined) process.env.DOTENV_CONFIG_PATH = prev;
+      else delete process.env.DOTENV_CONFIG_PATH;
+      delete process.env.TEST_DOTENV_CUSTOM_VAR;
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it("skips loading if DOTENV_CONFIG_PATH is empty string", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gwmcp-dotenv-"));
+    fs.writeFileSync(path.join(tmp, ".env"), "TEST_DOTENV_ROOT_VAR=should_not_load\n");
+    const prev = process.env.DOTENV_CONFIG_PATH;
+    try {
+      process.env.DOTENV_CONFIG_PATH = "";
+      loadDotEnv(tmp);
+      expect(process.env.TEST_DOTENV_ROOT_VAR).toBeUndefined();
+    } finally {
+      if (prev !== undefined) process.env.DOTENV_CONFIG_PATH = prev;
+      else delete process.env.DOTENV_CONFIG_PATH;
+      delete process.env.TEST_DOTENV_ROOT_VAR;
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
