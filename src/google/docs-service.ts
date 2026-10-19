@@ -11,6 +11,7 @@ import {
   isRevisionMismatch,
   mapGoogleError,
   retryAfterMsFromError,
+  wasNeverDelivered,
 } from "./google-errors.js";
 
 export interface AppendInput {
@@ -27,6 +28,11 @@ export interface AppendResult {
   verified: boolean;
 }
 
+export interface CreateResult {
+  documentId: string;
+  appendedCharacters: number;
+}
+
 export interface DocsServiceDeps {
   docsFor: DocsFactory;
   auth: AuthProvider;
@@ -38,6 +44,62 @@ export interface DocsServiceDeps {
 
 export class DocsService {
   constructor(private readonly deps: DocsServiceDeps) {}
+
+  /**
+   * Creates a new, empty document, optionally followed by an initial append. The create call is made
+   * exactly once: Docs has no idempotency key, so a repeat after an ambiguous failure could leave
+   * two documents with the same title.
+   */
+  async createDocument(title: string, initialText?: string): Promise<CreateResult> {
+    const { logger } = this.deps;
+    const oauth = await this.deps.auth.getClient("docs");
+    const api = this.deps.docsFor(oauth);
+
+    let created: Awaited<ReturnType<DocsPort["create"]>>;
+    try {
+      created = await api.create(title);
+    } catch (err) {
+      if (wasNeverDelivered(err)) {
+        throw new AppError("NETWORK_ERROR", undefined, { cause: err, retryable: true });
+      }
+      const mapped = mapGoogleError(err, { kind: "write" });
+      if (mapped.code === "OPERATION_OUTCOME_UNKNOWN") {
+        throw new AppError(
+          "OPERATION_OUTCOME_UNKNOWN",
+          "Google may have created this document. Check Google Drive for a doc with this title before retrying.",
+          { cause: err },
+        );
+      }
+      throw mapped;
+    }
+    const documentId = created.documentId;
+    if (!documentId) {
+      throw new AppError(
+        "OPERATION_OUTCOME_UNKNOWN",
+        "Google responded without confirming the document. Check Google Drive for a doc with this title before retrying.",
+      );
+    }
+    logger.info("docs.create.created", { doc_hash: hashId(documentId) });
+
+    if (initialText === undefined) return { documentId, appendedCharacters: 0 };
+    try {
+      const appended = await this.appendText({
+        documentId,
+        text: initialText,
+        addSeparatorNewline: false,
+        insertTimestamp: false,
+      });
+      return { documentId, appendedCharacters: appended.appendedCharacters };
+    } catch (err) {
+      // The empty document exists now, so a plain retry of the create would leave a duplicate.
+      const cause = err instanceof AppError ? err : mapGoogleError(err, { kind: "write" });
+      throw new AppError(
+        cause.code,
+        `The document was created (document_id: ${documentId}) but the initial text could not be added. Use google_docs_append_text with this document_id instead of creating it again.`,
+        { cause: err, retryable: false },
+      );
+    }
+  }
 
   /** Appends text at the end of an existing document. Never creates or replaces anything. */
   async appendText(input: AppendInput): Promise<AppendResult> {

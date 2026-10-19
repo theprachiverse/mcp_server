@@ -44,8 +44,10 @@ describe("stdio server process", () => {
     try {
       const { tools } = await client.listTools();
       expect(tools.map((t) => t.name).sort()).toEqual([
+        "gmail_create_draft",
         "gmail_send_email",
         "google_docs_append_text",
+        "google_docs_create",
       ]);
 
       const r = await client.callTool({
@@ -59,7 +61,7 @@ describe("stdio server process", () => {
       });
 
       // The server is still alive after the failure.
-      expect((await client.listTools()).tools).toHaveLength(2);
+      expect((await client.listTools()).tools).toHaveLength(4);
     } finally {
       await client.close();
     }

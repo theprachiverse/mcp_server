@@ -7,11 +7,11 @@ Tick each item and note the date and client/version.
 - [ ] `npm install && npm run build` succeeds on a clean clone.
 - [ ] `npm run check` is green.
 - [ ] `npm run auth` opens the browser, completes, and prints the authorised account.
-- [ ] `npm run auth -- --status` shows the right account and only: gmail.send, documents, openid, email.
+- [ ] `npm run auth -- --status` shows the right account and only: gmail.send, gmail.compose, documents, openid, email.
 - [ ] No `.env`, token file, or client secret appears in `git status`.
 
 ## Discovery (in the MCP client)
-- [ ] The client lists exactly two tools: `gmail_send_email`, `google_docs_append_text`.
+- [ ] The client lists exactly four tools: `gmail_send_email`, `gmail_create_draft`, `google_docs_append_text`, `google_docs_create`.
 - [ ] Descriptions state the side effects (real email / modifies the document).
 - [ ] The client asks for confirmation before running either tool (note if it does not).
 
@@ -46,7 +46,7 @@ Tick each item and note the date and client/version.
 ## Remote (Railway)
 - [ ] `GET /healthz` returns 200 without credentials.
 - [ ] `POST /mcp` without a token, and with a wrong token, returns 401. Over plain `http://` the platform redirects or refuses.
-- [ ] `tools/list` with the token returns exactly the two tools (curl, MCP Inspector, then a real client).
+- [ ] `tools/list` with the token returns exactly the four tools (curl, MCP Inspector, then a real client).
 - [ ] Append one line to a throw-away doc and send one email to yourself through the public URL.
 - [ ] Redeploy once; both calls still work without re-running `npm run auth`.
 - [ ] Search the Railway logs for `ya29.`, `GOCSPX-`, `1//`, the bearer token, recipients, subjects and body text. None should appear.

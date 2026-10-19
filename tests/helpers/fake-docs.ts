@@ -56,6 +56,10 @@ export class FakeDocs implements DocsPort {
 
   constructor(public text: string) {}
 
+  async create(_title: string) {
+    return { documentId: "new-doc-id" };
+  }
+
   async get() {
     this.getCalls++;
     const err = this.getErrors.shift();

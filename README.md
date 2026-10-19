@@ -1,14 +1,17 @@
 # Google Workspace MCP Server
 
 A small, provider-neutral [Model Context Protocol](https://modelcontextprotocol.io) server that lets any
-MCP client do two things in **your** Google account:
+MCP client do a few things in **your** Google account:
 
 | Tool | What it does |
 |---|---|
 | `gmail_send_email` | Sends a real email through Gmail. |
+| `gmail_create_draft` | Saves an email as a Gmail draft. It never sends. |
 | `google_docs_append_text` | Appends text to the end of an **existing** Google Doc. Existing content is never changed. |
+| `google_docs_create` | Creates a **new** Google Doc, optionally with some initial text. |
 
-Nothing else is exposed: no reading mail, no creating or deleting docs, no generic API access.
+Nothing else is exposed: no reading mail, no editing or sending existing drafts, no deleting or replacing
+doc content, no generic API access.
 Design details are in [architecture.md](docs/architecture.md); requirements are in
 [problemStatement.md](docs/problemStatement.md). To host it on Railway, see
 [docs/deployment-plan.md](docs/deployment-plan.md).
@@ -40,7 +43,8 @@ Design details are in [architecture.md](docs/architecture.md); requirements are 
 | Scope | Why | What it permits |
 |---|---|---|
 | `gmail.send` | Send email | Sending only. **No** reading, searching, or deleting mail. |
-| `documents` | Append to docs | Read **and edit every Google Doc** the account can open. This is broader than "append only": Google has no narrower scope for editing an existing doc you did not create with this app. The server only ever issues a read of the target doc and an append. |
+| `gmail.compose` | Create drafts | Create, edit, delete and **send** drafts and messages. This is broader than "create drafts only": Google has no narrower draft scope. The server only ever calls `drafts.create`, and the draft tool has no code path to the send API. |
+| `documents` | Create and append to docs | Read **and edit every Google Doc** the account can open, and create new ones. This is broader than "append only": Google has no narrower scope for editing an existing doc you did not create with this app. The server only ever issues a create, a read of the target doc and an append. |
 | `openid`, `email` | Identify the account | Lets `npm run auth -- --status` show which account is authorised. |
 
 No Gmail read/modify scopes and no Drive scopes are requested.
@@ -163,6 +167,27 @@ Limits are configurable (`GMAIL_MAX_*`). At most 50 recipients in total; an addr
 across `to`/`cc`/`bcc` is rejected rather than silently merged. Success returns `message_id` and
 `thread_id`.
 
+### `gmail_create_draft`
+
+Takes exactly the same fields and validation as `gmail_send_email`, but only saves the message to
+Drafts; nothing is delivered. Success returns `draft_id` and `message_id`. The call is made once and
+never retried, so calling it twice leaves two drafts. If the outcome is unclear
+(`OPERATION_OUTCOME_UNKNOWN`), check Drafts before trying again. It needs the `gmail.compose` scope; a
+token authorised before that scope existed gets `AUTH_REQUIRED` until you run `npm run auth` again.
+
+### `google_docs_create`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `title` | string | yes | Single line, not blank, ≤ 200 chars |
+| `initial_text` | string | no | Plain text, ≤ 50,000 chars (`DOCS_MAX_APPEND_CHARS`); added with the same logic as `google_docs_append_text` |
+
+Success returns `document_id` and `document_url`. The create call is made once and never retried, so
+calling it twice makes two documents. If the outcome is unclear (`OPERATION_OUTCOME_UNKNOWN`), check
+Google Drive for a doc with that title before trying again. If the document was created but the
+`initial_text` could not be added, the error message includes the new `document_id`; use
+`google_docs_append_text` on it instead of creating again. No extra scope is needed.
+
 ### `google_docs_append_text`
 
 | Field | Type | Required | Notes |
@@ -181,7 +206,7 @@ Behaviour notes:
 - Each write is guarded by the document's revision. If someone edits the doc between read and write,
   Google rejects the write (nothing is added) and the server re-reads and tries again, up to
   `DOCS_MAX_WRITE_ATTEMPTS` times.
-- Sheets, Slides and Drive links are rejected. The server never creates a document.
+- Sheets, Slides and Drive links are rejected. This tool never creates a document; use `google_docs_create`.
 
 ### Error codes
 
@@ -220,8 +245,9 @@ skipped unless explicitly enabled. Never aim them at production documents or rec
 RUN_INTEGRATION_TESTS=1 INTEGRATION_TEST_DOC_ID=<id> npm run test:integration
 ```
 
-(PowerShell: set `$env:RUN_INTEGRATION_TESTS="1"` etc. first.) Because the server only has the `gmail.send`
-scope it cannot read mail, so the email test confirms Gmail returned a message ID and you verify arrival by hand.
+(PowerShell: set `$env:RUN_INTEGRATION_TESTS="1"` etc. first.) Because the server has no Gmail read
+scope (`gmail.send` and `gmail.compose` only),
+it cannot read mail, so the email test confirms Gmail returned a message ID and you verify arrival by hand.
 
 ## 9. Client compatibility
 
@@ -272,7 +298,8 @@ A manual checklist is in [docs/manual-test-checklist.md](docs/manual-test-checkl
 ## 12. Known limitations
 
 - Single-user only. Local stdio by default; the optional remote HTTP mode uses one shared bearer token and one Google account (no multi-user or OAuth-for-clients support).
-- Plain-text append only; first tab only; no document creation, reading, or editing of existing text.
+- Plain text only; appends go to the first tab only. Documents can be created and appended to, but not read, or have existing text edited or deleted.
+- Drafts can be created but not listed, edited, deleted or sent.
 - Plain email addresses only (no `"Name <addr>"`); no attachments, threads/replies, or bulk mail.
 - The Docs API needs the broad `documents` scope (see section 3).
 - Revision-conflict detection and style-reset behaviour were written against Google's documented API and unit

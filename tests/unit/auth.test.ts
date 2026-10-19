@@ -17,12 +17,13 @@ afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const cfg = { clientId: "cid", clientSecret: "csecret", redirectPort: 53682 };
 const BOTH =
-  "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/documents openid email";
+  "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/documents openid email";
 
 describe("SCOPES", () => {
   it("is exactly the approved, least-privilege list", () => {
     expect([...SCOPES]).toEqual([
       "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.compose",
       "https://www.googleapis.com/auth/documents",
       "openid",
       "email",
@@ -96,6 +97,21 @@ describe("GoogleAuthProvider", () => {
       code: "AUTH_REQUIRED",
       message: expect.stringMatching(/sending email/),
     });
+    await expect(p.getClient("docs")).resolves.toBeDefined();
+  });
+
+  it("asks for a new authorisation when a token predates the draft scope", async () => {
+    store.write({
+      refresh_token: "r",
+      scope:
+        "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/documents openid email",
+    });
+    const p = new GoogleAuthProvider(cfg, store, nullLogger, fakeClient());
+    await expect(p.getClient("gmail_draft")).rejects.toMatchObject({
+      code: "AUTH_REQUIRED",
+      message: expect.stringMatching(/creating Gmail drafts.*npm run auth/),
+    });
+    await expect(p.getClient("gmail")).resolves.toBeDefined();
     await expect(p.getClient("docs")).resolves.toBeDefined();
   });
 

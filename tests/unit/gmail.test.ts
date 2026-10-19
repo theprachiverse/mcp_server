@@ -12,7 +12,11 @@ const auth: AuthProvider = { getClient: async () => ({}) as never };
 const msg = { to: ["a@example.com"], subject: "Hi", body: "Body", bodyType: "text" as const };
 
 function svc(send: GmailPort["send"], a: AuthProvider = auth) {
-  return new GmailService({ gmailFor: () => ({ send }), auth: a, logger: nullLogger });
+  return new GmailService({
+    gmailFor: () => ({ send, createDraft: vi.fn() }),
+    auth: a,
+    logger: nullLogger,
+  });
 }
 
 describe("GmailService.sendEmail", () => {

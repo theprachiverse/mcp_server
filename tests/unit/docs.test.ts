@@ -291,11 +291,9 @@ describe("DocsService.appendText", () => {
     expect(fake.getCalls).toBe(0);
   });
 
-  it("never exposes a create method", () => {
-    expect(
-      Object.getOwnPropertyNames(DocsService.prototype).filter((n) =>
-        /create|replace|delete/i.test(n),
-      ),
-    ).toEqual([]);
+  it("only exposes create (createDocument), never replace or delete", () => {
+    const names = Object.getOwnPropertyNames(DocsService.prototype);
+    expect(names.filter((n) => /replace|delete/i.test(n))).toEqual([]);
+    expect(names.filter((n) => /create/i.test(n))).toEqual(["createDocument"]);
   });
 });

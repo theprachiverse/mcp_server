@@ -7,6 +7,8 @@ import { createDocsFactory, createGmailFactory } from "./google/clients.js";
 import { DocsService } from "./google/docs-service.js";
 import { GmailService } from "./google/gmail-service.js";
 import { createDocsAppendTool } from "./tools/docs-append.js";
+import { createDocsCreateTool } from "./tools/docs-create.js";
+import { createGmailDraftTool } from "./tools/gmail-draft.js";
 import { createGmailSendTool } from "./tools/gmail-send.js";
 import type { ToolDefinition } from "./tools/types.js";
 import { createLogger, type Logger } from "./utils/logging.js";
@@ -46,6 +48,11 @@ export function createRuntime(config: Config, version: string): Runtime {
   return {
     logger,
     store,
-    tools: [createGmailSendTool({ gmail, config }), createDocsAppendTool({ docs, config })],
+    tools: [
+      createGmailSendTool({ gmail, config }),
+      createGmailDraftTool({ gmail, config }),
+      createDocsAppendTool({ docs, config }),
+      createDocsCreateTool({ docs, config }),
+    ],
   };
 }

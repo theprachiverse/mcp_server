@@ -9,7 +9,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { GoogleAuthProvider, SCOPE_DOCS, SCOPE_GMAIL_SEND } from "../../src/auth/google-oauth.js";
+import {
+  GoogleAuthProvider,
+  SCOPE_DOCS,
+  SCOPE_GMAIL_COMPOSE,
+  SCOPE_GMAIL_SEND,
+} from "../../src/auth/google-oauth.js";
 import { TokenStore } from "../../src/auth/token-store.js";
 import { findProjectRoot, loadConfig } from "../../src/config.js";
 import { createDocsFactory } from "../../src/google/clients.js";
@@ -58,10 +63,12 @@ describe.skipIf(!docsEnabled && !emailEnabled)("real Google integration", () => 
     const config = loadConfig(process.env, root);
     const granted = (new TokenStore(config.tokenPath).read()?.scope ?? "").split(" ");
     expect(granted).toContain(SCOPE_GMAIL_SEND);
+    expect(granted).toContain(SCOPE_GMAIL_COMPOSE);
     expect(granted).toContain(SCOPE_DOCS);
     // Google reports 'email' as .../auth/userinfo.email; anything else would be extra access.
     const allowed = new Set([
       SCOPE_GMAIL_SEND,
+      SCOPE_GMAIL_COMPOSE,
       SCOPE_DOCS,
       "openid",
       "email",

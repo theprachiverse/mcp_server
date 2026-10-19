@@ -10,6 +10,11 @@ export interface SendResult {
   threadId?: string | undefined;
 }
 
+export interface DraftResult {
+  draftId: string;
+  messageId?: string | undefined;
+}
+
 export class GmailService {
   constructor(
     private readonly deps: { gmailFor: GmailFactory; auth: AuthProvider; logger: Logger },
@@ -29,18 +34,10 @@ export class GmailService {
     try {
       result = await api.send(raw);
     } catch (err) {
-      if (wasNeverDelivered(err)) {
-        throw new AppError("NETWORK_ERROR", undefined, { cause: err, retryable: true });
-      }
-      const mapped = mapGoogleError(err, { kind: "write" });
-      if (mapped.code === "OPERATION_OUTCOME_UNKNOWN") {
-        throw new AppError(
-          "OPERATION_OUTCOME_UNKNOWN",
-          "Gmail may have sent this email. Check the Sent folder before trying again.",
-          { cause: err },
-        );
-      }
-      throw mapped;
+      throw mapWriteError(
+        err,
+        "Gmail may have sent this email. Check the Sent folder before trying again.",
+      );
     }
     if (!result.id) {
       throw new AppError(
@@ -50,4 +47,43 @@ export class GmailService {
     }
     return { messageId: result.id, threadId: result.threadId };
   }
+
+  /**
+   * Saves a draft exactly once and never sends it. Like sendEmail there is deliberately NO retry:
+   * Gmail has no idempotency key, so a repeated request could leave two drafts.
+   */
+  async createDraft(message: MimeInput): Promise<DraftResult> {
+    const oauth = await this.deps.auth.getClient("gmail_draft");
+    const raw = toGmailRaw(buildMimeMessage(message));
+    const api = this.deps.gmailFor(oauth);
+
+    let result: Awaited<ReturnType<typeof api.createDraft>>;
+    try {
+      result = await api.createDraft(raw);
+    } catch (err) {
+      throw mapWriteError(
+        err,
+        "Gmail may have created this draft. Check Drafts before trying again.",
+      );
+    }
+    if (!result.id) {
+      throw new AppError(
+        "OPERATION_OUTCOME_UNKNOWN",
+        "Gmail responded without confirming the draft. Check Drafts before trying again.",
+      );
+    }
+    return { draftId: result.id, messageId: result.messageId };
+  }
+}
+
+/** Maps a failed Gmail write; an ambiguous failure becomes OPERATION_OUTCOME_UNKNOWN. */
+function mapWriteError(err: unknown, unknownMessage: string): AppError {
+  if (wasNeverDelivered(err)) {
+    return new AppError("NETWORK_ERROR", undefined, { cause: err, retryable: true });
+  }
+  const mapped = mapGoogleError(err, { kind: "write" });
+  if (mapped.code === "OPERATION_OUTCOME_UNKNOWN") {
+    return new AppError("OPERATION_OUTCOME_UNKNOWN", unknownMessage, { cause: err });
+  }
+  return mapped;
 }

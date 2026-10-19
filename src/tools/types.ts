@@ -37,10 +37,20 @@ export interface ToolDefinition<Shape extends z.ZodRawShape = z.ZodRawShape> {
 export const resultOutputShape = {
   success: z.boolean().describe("true when the action completed"),
   message: z.string().optional().describe("Short human-readable summary"),
-  message_id: z.string().optional().describe("Gmail message ID (gmail_send_email)"),
+  message_id: z
+    .string()
+    .optional()
+    .describe("Gmail message ID (gmail_send_email, gmail_create_draft)"),
   thread_id: z.string().optional().describe("Gmail thread ID (gmail_send_email)"),
-  document_id: z.string().optional().describe("Google Docs document ID (google_docs_append_text)"),
-  document_url: z.string().optional().describe("Link to the document (google_docs_append_text)"),
+  draft_id: z.string().optional().describe("Gmail draft ID (gmail_create_draft)"),
+  document_id: z
+    .string()
+    .optional()
+    .describe("Google Docs document ID (google_docs_append_text, google_docs_create)"),
+  document_url: z
+    .string()
+    .optional()
+    .describe("Link to the document (google_docs_append_text, google_docs_create)"),
   appended_characters: z
     .number()
     .optional()

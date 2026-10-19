@@ -8,14 +8,22 @@ import type { Logger } from "../utils/logging.js";
 import { TokenStore, type StoredTokens } from "./token-store.js";
 
 export const SCOPE_GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";
+export const SCOPE_GMAIL_COMPOSE = "https://www.googleapis.com/auth/gmail.compose";
 export const SCOPE_DOCS = "https://www.googleapis.com/auth/documents";
 
 /** The ONLY place OAuth scopes are listed. `openid`/`email` only identify the account. */
-export const SCOPES: readonly string[] = [SCOPE_GMAIL_SEND, SCOPE_DOCS, "openid", "email"];
+export const SCOPES: readonly string[] = [
+  SCOPE_GMAIL_SEND,
+  SCOPE_GMAIL_COMPOSE,
+  SCOPE_DOCS,
+  "openid",
+  "email",
+];
 
-export type Capability = "gmail" | "docs";
+export type Capability = "gmail" | "gmail_draft" | "docs";
 const CAPABILITY_SCOPE: Record<Capability, { scope: string; label: string }> = {
   gmail: { scope: SCOPE_GMAIL_SEND, label: "sending email" },
+  gmail_draft: { scope: SCOPE_GMAIL_COMPOSE, label: "creating Gmail drafts" },
   docs: { scope: SCOPE_DOCS, label: "editing Google Docs" },
 };
 

@@ -52,6 +52,7 @@ describe("runConsentFlow loopback listener", () => {
     expect(u.searchParams.get("redirect_uri")).toBe(`http://127.0.0.1:${port}/oauth2callback`);
     expect(u.searchParams.get("scope")!.split(" ")).toEqual([
       "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/gmail.compose",
       "https://www.googleapis.com/auth/documents",
       "openid",
       "email",

@@ -36,7 +36,7 @@ out of scope and listed in §11.
  Container: node dist/http.js  (listens on 0.0.0.0:$PORT)
    - /healthz            no auth, no secrets, used by Railway healthchecks
    - /mcp                bearer auth -> rate limit -> Streamable HTTP (stateless)
-   - tools                gmail_send_email, google_docs_append_text (unchanged)
+   - tools                gmail_send_email, gmail_create_draft, google_docs_append_text, google_docs_create
    - token                GOOGLE_TOKEN_B64 -> written to the token file at boot
         |
         v
@@ -242,7 +242,7 @@ Run these in order after the first successful deploy. Replace `$URL` and `$TOKEN
      -H "Accept: application/json, text/event-stream" `
      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
    ```
-   Expect exactly `gmail_send_email` and `google_docs_append_text`. If the server rejects `tools/list` before `initialize`, send `initialize` first or use the Inspector.
+   Expect exactly `gmail_send_email`, `gmail_create_draft`, `google_docs_append_text` and `google_docs_create`. If the server rejects `tools/list` before `initialize`, send `initialize` first or use the Inspector.
 4. **MCP Inspector**: `npx @modelcontextprotocol/inspector` → transport *Streamable HTTP*, URL `$URL/mcp`, header `Authorization: Bearer <token>`. List tools and call each one.
 5. **Real client** (Claude Code):
    ```
@@ -282,7 +282,7 @@ Do not run the destructive or large-recipient tests against production data.
 - [ ] A request with a foreign `Host` header is refused with 403 (allowed hosts are the Railway domain plus any custom domain).
 - [ ] Rate limit is active on `/mcp` (suggested: 30 requests/min per IP) and returns 429 when exceeded.
 - [ ] No secret appears in git history, Railway build logs or runtime logs. Search the logs for `ya29.`, `GOCSPX-` and `1//`.
-- [ ] Google scopes are still only `gmail.send`, `documents`, `openid`, `email` (`npm run auth -- --status`).
+- [ ] Google scopes are still only `gmail.send`, `gmail.compose`, `documents`, `openid`, `email` (`npm run auth -- --status`).
 - [ ] The `.env` and `.local/` files were never committed (`git log --all -- .env .local` is empty).
 - [ ] Dedicated Google account used for first deploy, not a primary mailbox.
 - [ ] Railway project access is limited to people who may send mail as that account.
