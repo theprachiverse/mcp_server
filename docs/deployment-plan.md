@@ -14,7 +14,7 @@ HTTPS URL. This server does neither today:
 | Google consent is a **loopback** flow (`npm run auth` opens a browser on `127.0.0.1`). | The consent step cannot run on Railway. It stays on your laptop and the resulting token is moved to Railway. |
 | Token is a file in `./.local/` (git-ignored, absent from a deploy). | The token must reach the container through a secret variable (optionally a volume). |
 
-The README says the server "must not be exposed publicly as-is", and `architecture.md` §16 already sketches
+Before this change the README said the server "must not be exposed publicly as-is", and `architecture.md` §16 already sketched
 the remote option. This plan implements the **smallest safe version** of that sketch:
 
 - single user, i.e. one Google account, the one you authorise;
@@ -61,7 +61,7 @@ out of scope and listed in §11.
 - [ ] Railway account, with a plan that allows an always-on service (check current plan limits and pricing at railway.com).
 - [ ] Google Cloud project with the Gmail API and Docs API enabled and a working **Desktop app** OAuth client (already used for local `npm run auth`).
 - [ ] `npm run check` is green locally.
-- [ ] Working tree is clean enough to commit: `git status` currently shows the three docs moved into `docs/` as deleted + untracked. Stage that move first (`git add -A docs architecture.md implementation-plan.md problemStatement.md`).
+- [x] The docs move into `docs/` and the code changes are committed (`9eca0c6`) and pushed.
 - [ ] Confirm `.env`, `.local/` and `dist/` are git-ignored (they are in `.gitignore`). Never run `railway up` from a folder where that is not true.
 
 ## 5. Phase 1: code changes (implemented)

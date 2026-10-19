@@ -9,12 +9,14 @@ MCP client do two things in **your** Google account:
 | `google_docs_append_text` | Appends text to the end of an **existing** Google Doc. Existing content is never changed. |
 
 Nothing else is exposed: no reading mail, no creating or deleting docs, no generic API access.
-Design details are in [architecture.md](architecture.md); requirements are in
-[problemStatement.md](problemStatement.md).
+Design details are in [architecture.md](docs/architecture.md); requirements are in
+[problemStatement.md](docs/problemStatement.md). To host it on Railway, see
+[docs/deployment-plan.md](docs/deployment-plan.md).
 
-> **Whose account does it use?** The one that ran `npm run auth`. This is a single-user, local
-> server. Anyone who can run the process can send mail as that account and edit its docs. It is not
-> a multi-user or hosted service.
+> **Whose account does it use?** The one that ran `npm run auth`. This is a single-user server, run
+> locally over stdio or hosted remotely over HTTP. Anyone who can run the process (or, in remote mode,
+> who holds the bearer token) can send mail as that account and edit its docs. It is not a multi-user
+> service.
 
 ## 1. Prerequisites
 
@@ -117,10 +119,23 @@ client until it has been tested.
 
 ### Local stdio vs. remote hosting
 
-Version 1 supports **local stdio only**. Hosted-only clients (for example ChatGPT custom connectors)
-need a remote MCP transport (Streamable HTTP over HTTPS with client authentication and per-user
-Google OAuth). That is not built, and the server must not be exposed publicly as-is.
-[architecture.md §16](architecture.md) outlines how it could be added without changing the tools.
+The default is **local stdio**. There is also a minimal **remote mode** (`npm run start:http`) that serves
+MCP over Streamable HTTP, built for a single user on a host such as Railway. Step-by-step instructions are in
+[docs/deployment-plan.md](docs/deployment-plan.md). It differs from stdio like this:
+
+- Every request to `/mcp` must carry `Authorization: Bearer <MCP_AUTH_TOKEN>` (at least 32 characters; the
+  server refuses to start without it). Treat the token like a password: whoever holds it can send mail as the
+  authorised account. **Never run `start:http` on a public address without it.**
+- The Google consent step still runs on your own machine (`npm run auth`). Put the resulting token file, base64
+  encoded, in `GOOGLE_TOKEN_B64`; the server writes it to `GOOGLE_TOKEN_PATH` at startup if no file exists.
+- Requests are rate limited (`MCP_RATE_LIMIT_PER_MINUTE`, default 30 per IP) and the `Host` header must be listed
+  in `MCP_ALLOWED_HOSTS` (Railway's public domain is added automatically). `GET /healthz` needs no credentials.
+- It is **single-user**. Clients that only support OAuth (claude.ai and ChatGPT connectors) cannot use it.
+  Claude Code, Cursor and MCP Inspector can send the bearer header:
+  `claude mcp add --transport http google-workspace https://<your-domain>/mcp --header "Authorization: Bearer <token>"`
+
+All remote variables are listed in [.env.example](.env.example).
+[architecture.md §16](docs/architecture.md) describes what a multi-user version would still need.
 
 ## 7. Tool reference
 
@@ -226,6 +241,9 @@ A manual checklist is in [docs/manual-test-checklist.md](docs/manual-test-checkl
 - Logs are JSON lines on **stderr** (stdout is reserved for MCP). They record the tool name, outcome, error
   code, duration, a request ID, and counts. They never contain email bodies, subjects, recipients, document text,
   headings, tokens, or full document IDs (only a short hash).
+- Remote mode: `/mcp` accepts only the bearer token (compared in constant time, never logged), is rate limited, and
+  checks the `Host` header. Rotate `MCP_AUTH_TOKEN` if it may have leaked. Set secrets in the host's variable
+  store, not in the repository.
 - Treat everything the model sends, and everything inside documents, as untrusted data.
 - The MCP annotations (`readOnlyHint: false`, `idempotentHint: false`) and the tool descriptions tell clients
   these tools have real side effects. Whether a client asks the user for confirmation is up to that client.
@@ -242,6 +260,12 @@ A manual checklist is in [docs/manual-test-checklist.md](docs/manual-test-checkl
 | "Google did not return a refresh token" | Remove the app at <https://myaccount.google.com/permissions>, then run `npm run auth` again. |
 | `PERMISSION_DENIED` on a doc | The account needs *Editor* access. Also check that the Docs/Gmail APIs are enabled in the project. |
 | `OPERATION_OUTCOME_UNKNOWN` | Look in the Sent folder / open the document before trying again. |
+| Remote: `MCP_AUTH_TOKEN is missing or shorter than 32 characters` on start | Set `MCP_AUTH_TOKEN` (see [.env.example](.env.example) for a generator command). |
+| Remote: `GOOGLE_TOKEN_B64 is not base64…` on start | Re-encode `.local/google-token.json` (see [.env.example](.env.example)) and set the variable again without line breaks or quotes. |
+| Remote: 401 from `/mcp` | Missing or wrong `Authorization: Bearer <MCP_AUTH_TOKEN>` header. |
+| Remote: 403 `Invalid Host` | The domain is not in `MCP_ALLOWED_HOSTS`. Add custom domains there. |
+| Remote: 429 | Over `MCP_RATE_LIMIT_PER_MINUTE`; wait a minute or raise the limit. |
+| Remote: `AUTH_EXPIRED` after it worked before | Re-run `npm run auth` locally, update `GOOGLE_TOKEN_B64`, and **redeploy** (a plain restart keeps the old token file). |
 | Client says it cannot start the server | Use absolute paths and the full path to `node`. Run `node dist/index.js` by hand to see stderr. Rebuild with `npm run build`. |
 | Server output corrupts the client | Nothing should write to stdout except MCP. Report it with the stderr lines. |
 
