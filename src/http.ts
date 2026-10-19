@@ -27,8 +27,16 @@ async function main(): Promise<void> {
   // The endpoint is public and the tools send real email, so refuse to start without a strong secret.
   const authToken = config.mcpAuthToken;
   if (!authToken || authToken.length < MIN_AUTH_TOKEN_CHARS) {
+    // Report only the length and the names of similar variables (never values), to separate
+    // "not set on this service" from "set but too short" and from a misspelled name.
+    const similar = Object.keys(process.env).filter((k) => /^MCP_|TOKEN/i.test(k));
+    const state = authToken
+      ? `is set but only ${authToken.length} characters long`
+      : "is not set (or is empty)";
     fail(
-      `MCP_AUTH_TOKEN is missing or shorter than ${MIN_AUTH_TOKEN_CHARS} characters. Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`,
+      `MCP_AUTH_TOKEN ${state}; at least ${MIN_AUTH_TOKEN_CHARS} are required. ` +
+        `Variables seen with similar names: ${similar.length ? similar.map((k) => JSON.stringify(k)).join(", ") : "none"}. ` +
+        `Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`,
     );
   }
 
