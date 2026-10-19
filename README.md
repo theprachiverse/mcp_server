@@ -78,6 +78,7 @@ the folder, so keep it inside your user profile (for example
 | `npm install` | Install dependencies |
 | `npm run build` | Compile TypeScript to `dist/` |
 | `npm start` | Run the stdio server (normally launched by an MCP client) |
+| `npm run start:http` | Run the remote Streamable HTTP server (needs `MCP_AUTH_TOKEN`; see section 6) |
 | `npm run auth` / `-- --status` / `-- --revoke` | Authorise, inspect, or revoke access |
 | `npm test` | Unit tests (offline, never sends mail) |
 | `npm run check` | Typecheck + lint + unit tests |
@@ -213,7 +214,8 @@ scope it cannot read mail, so the email test confirms Gmail returned a message I
 |---|---|
 | MCP SDK client over stdio (automated test in `tests/unit/stdio-process.test.ts`) | Tested: tools are discovered and calls succeed |
 | Antigravity, Claude Code, Claude Desktop, others | **Not yet tested by the maintainers.** Configuration examples are in section 6. Update this table after trying them. |
-| Hosted-only clients (ChatGPT etc.) | Not supported in V1 (needs remote transport) |
+| Remote HTTP mode: MCP SDK client over Streamable HTTP (automated test in `tests/unit/http-server.test.ts`) | Tested: auth, discovery and a tool call |
+| Hosted-only clients that require OAuth (claude.ai, ChatGPT connectors) | Not supported (a static bearer token is not OAuth) |
 
 A manual checklist is in [docs/manual-test-checklist.md](docs/manual-test-checklist.md).
 
@@ -245,7 +247,7 @@ A manual checklist is in [docs/manual-test-checklist.md](docs/manual-test-checkl
 
 ## 12. Known limitations
 
-- Local, single-user, stdio only. No remote hosting or multi-user support.
+- Single-user only. Local stdio by default; the optional remote HTTP mode uses one shared bearer token and one Google account (no multi-user or OAuth-for-clients support).
 - Plain-text append only; first tab only; no document creation, reading, or editing of existing text.
 - Plain email addresses only (no `"Name <addr>"`); no attachments, threads/replies, or bulk mail.
 - The Docs API needs the broad `documents` scope (see section 3).

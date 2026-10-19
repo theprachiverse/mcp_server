@@ -67,6 +67,45 @@ describe("loadConfig", () => {
   });
 });
 
+describe("loadConfig: remote (HTTP) settings", () => {
+  it("needs none of them, so stdio users are unaffected", () => {
+    const c = loadConfig(baseEnv, ROOT);
+    expect(c.port).toBe(3000);
+    expect(c.mcpAuthToken).toBeUndefined();
+    expect(c.googleTokenB64).toBeUndefined();
+    expect(c.mcpAllowedHosts).toEqual([]);
+    expect(c.mcpRateLimitPerMinute).toBe(30);
+    expect(c.mcpTrustProxy).toBe(0);
+  });
+  it("merges MCP_ALLOWED_HOSTS with Railway's public domain, normalised and de-duplicated", () => {
+    const c = loadConfig(
+      {
+        ...baseEnv,
+        MCP_ALLOWED_HOSTS: " MCP.Example.com, ,other.example.com ",
+        RAILWAY_PUBLIC_DOMAIN: "app.up.railway.app",
+      },
+      ROOT,
+    );
+    expect(c.mcpAllowedHosts).toEqual([
+      "mcp.example.com",
+      "other.example.com",
+      "app.up.railway.app",
+    ]);
+  });
+  it("trusts one proxy hop on Railway unless overridden", () => {
+    expect(
+      loadConfig({ ...baseEnv, RAILWAY_ENVIRONMENT_NAME: "production" }, ROOT).mcpTrustProxy,
+    ).toBe(1);
+    expect(
+      loadConfig({ ...baseEnv, RAILWAY_ENVIRONMENT_NAME: "production", MCP_TRUST_PROXY: "0" }, ROOT)
+        .mcpTrustProxy,
+    ).toBe(0);
+  });
+  it("rejects an invalid PORT without echoing it", () => {
+    expect(() => loadConfig({ ...baseEnv, PORT: "not-a-port" }, ROOT)).toThrow(/PORT/);
+  });
+});
+
 describe("redact / logger", () => {
   it("removes content keys and token-like strings from a realistic error", () => {
     const err = Object.assign(new Error("failed with Bearer ya29.A0AbCd-secret"), {

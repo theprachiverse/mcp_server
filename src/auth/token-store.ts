@@ -70,3 +70,33 @@ export class TokenStore {
     }
   }
 }
+
+export class TokenSeedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TokenSeedError";
+  }
+}
+
+/**
+ * Remote hosting: writes the token file from a base64 copy held in a secret variable, but only when
+ * no file exists yet (a refreshed file on disk is newer than the variable). Messages never include
+ * the value.
+ */
+export function seedTokenStore(store: TokenStore, base64: string): "seeded" | "exists" {
+  if (store.mtimeMs() !== null) return "exists";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(base64, "base64").toString("utf8"));
+  } catch {
+    throw new TokenSeedError("GOOGLE_TOKEN_B64 is not base64 of a JSON token file.");
+  }
+  const result = tokenSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new TokenSeedError(
+      "GOOGLE_TOKEN_B64 does not contain a valid token file (a refresh_token is required).",
+    );
+  }
+  store.write(result.data);
+  return "seeded";
+}

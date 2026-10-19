@@ -17,6 +17,13 @@ export interface Config {
   readonly docsMaxWriteAttempts: number;
   readonly docsTimestampTimezone: string;
   readonly logLevel: "error" | "warn" | "info" | "debug";
+  // Remote (Streamable HTTP) mode only. All optional so stdio users need none of them.
+  readonly port: number;
+  readonly mcpAuthToken: string | undefined;
+  readonly mcpAllowedHosts: readonly string[];
+  readonly mcpRateLimitPerMinute: number;
+  readonly mcpTrustProxy: number;
+  readonly googleTokenB64: string | undefined;
 }
 
 export class ConfigError extends Error {
@@ -53,6 +60,7 @@ const emptyToUndefined = (v: unknown) => (typeof v === "string" && v.trim() === 
 const int = (min: number, max: number, def: number) =>
   z.preprocess(emptyToUndefined, z.coerce.number().int().min(min).max(max).default(def));
 const required = z.preprocess(emptyToUndefined, z.string().min(1));
+const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
 
 const schema = z.object({
   GOOGLE_OAUTH_CLIENT_ID: required,
@@ -73,7 +81,25 @@ const schema = z.object({
     emptyToUndefined,
     z.enum(["error", "warn", "info", "debug"]).default("info"),
   ),
+  PORT: int(1, 65535, 3000),
+  MCP_AUTH_TOKEN: optionalString,
+  MCP_ALLOWED_HOSTS: optionalString,
+  MCP_RATE_LIMIT_PER_MINUTE: int(1, 10_000, 30),
+  // Reverse proxies in front of the server. Unset means 1 on Railway (it sets RAILWAY_ENVIRONMENT_NAME), else 0.
+  MCP_TRUST_PROXY: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(5).optional()),
+  GOOGLE_TOKEN_B64: optionalString,
+  RAILWAY_PUBLIC_DOMAIN: optionalString,
+  RAILWAY_ENVIRONMENT_NAME: optionalString,
 });
+
+/** Comma-separated host names; trims, lower-cases, drops blanks and duplicates. */
+function parseHostList(...lists: (string | undefined)[]): string[] {
+  const hosts = lists
+    .flatMap((l) => (l ?? "").split(","))
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(hosts)];
+}
 
 function isValidTimeZone(tz: string): boolean {
   try {
@@ -114,5 +140,11 @@ export function loadConfig(env: NodeJS.ProcessEnv, projectRoot: string): Readonl
     docsMaxWriteAttempts: e.DOCS_MAX_WRITE_ATTEMPTS,
     docsTimestampTimezone: e.DOCS_TIMESTAMP_TIMEZONE,
     logLevel: e.LOG_LEVEL,
+    port: e.PORT,
+    mcpAuthToken: e.MCP_AUTH_TOKEN,
+    mcpAllowedHosts: parseHostList(e.MCP_ALLOWED_HOSTS, e.RAILWAY_PUBLIC_DOMAIN),
+    mcpRateLimitPerMinute: e.MCP_RATE_LIMIT_PER_MINUTE,
+    mcpTrustProxy: e.MCP_TRUST_PROXY ?? (e.RAILWAY_ENVIRONMENT_NAME ? 1 : 0),
+    googleTokenB64: e.GOOGLE_TOKEN_B64,
   });
 }

@@ -26,9 +26,9 @@ export default tseslint.config(
     rules: { "no-console": "error" },
   },
   {
-    // Only server.ts / index.ts may touch the MCP SDK.
+    // Only the entry points and the HTTP transport wiring may touch the MCP SDK.
     files: ["src/**/*.ts"],
-    ignores: ["src/server.ts", "src/index.ts"],
+    ignores: ["src/server.ts", "src/index.ts", "src/http/app.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: sdkPatterns }] },
   },
   {
@@ -40,7 +40,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/server.ts", "src/index.ts"],
+    files: ["src/server.ts", "src/index.ts", "src/http/app.ts"],
     rules: { "no-restricted-imports": ["error", { patterns: googlePatterns }] },
   },
   {

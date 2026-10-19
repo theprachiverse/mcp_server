@@ -1,22 +1,11 @@
-import fs from "node:fs";
-import path from "node:path";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { GoogleAuthProvider } from "./auth/google-oauth.js";
-import { TokenStore } from "./auth/token-store.js";
+import { createRuntime, readVersion } from "./bootstrap.js";
 import { ConfigError, findProjectRoot, loadConfig, loadDotEnv } from "./config.js";
-import { createDocsFactory, createGmailFactory } from "./google/clients.js";
-import { DocsService } from "./google/docs-service.js";
-import { GmailService } from "./google/gmail-service.js";
 import { createServer } from "./server.js";
-import { createDocsAppendTool } from "./tools/docs-append.js";
-import { createGmailSendTool } from "./tools/gmail-send.js";
-import { createLogger } from "./utils/logging.js";
 
 async function main(): Promise<void> {
   const root = findProjectRoot();
-  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as {
-    version: string;
-  };
+  const version = readVersion(root);
 
   let config;
   try {
@@ -30,32 +19,12 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const logger = createLogger({ level: config.logLevel });
-  const store = new TokenStore(config.tokenPath);
-  const auth = new GoogleAuthProvider(config, store, logger);
-  const ua = pkg.version;
-
-  const gmail = new GmailService({
-    gmailFor: createGmailFactory(config.apiTimeoutMs, ua),
-    auth,
-    logger,
-  });
-  const docs = new DocsService({
-    docsFor: createDocsFactory(config.apiTimeoutMs, ua),
-    auth,
-    config,
-    logger,
-  });
-
-  const server = createServer({
-    tools: [createGmailSendTool({ gmail, config }), createDocsAppendTool({ docs, config })],
-    logger,
-    version: pkg.version,
-  });
+  const { logger, store, tools } = createRuntime(config, version);
+  const server = createServer({ tools, logger, version });
 
   await server.connect(new StdioServerTransport());
   logger.info("server.started", {
-    version: pkg.version,
+    version,
     node: process.version,
     token_file_present: store.mtimeMs() !== null,
   });

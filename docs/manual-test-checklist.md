@@ -43,6 +43,15 @@ Tick each item and note the date and client/version.
 - [ ] With `LOG_LEVEL=debug`, run one email and one append, then search the client's server log for the body,
       subject, recipient, document text and document ID. None should appear.
 
+## Remote (Railway)
+- [ ] `GET /healthz` returns 200 without credentials.
+- [ ] `POST /mcp` without a token, and with a wrong token, returns 401. Over plain `http://` the platform redirects or refuses.
+- [ ] `tools/list` with the token returns exactly the two tools (curl, MCP Inspector, then a real client).
+- [ ] Append one line to a throw-away doc and send one email to yourself through the public URL.
+- [ ] Redeploy once; both calls still work without re-running `npm run auth`.
+- [ ] Search the Railway logs for `ya29.`, `GOCSPX-`, `1//`, the bearer token, recipients, subjects and body text. None should appear.
+- [ ] More than `MCP_RATE_LIMIT_PER_MINUTE` requests in a minute return 429.
+
 ## Clients tried
 | Client + version | Date | Tools found | Confirmation prompt | Append OK | Send OK | Notes |
 |---|---|---|---|---|---|---|
